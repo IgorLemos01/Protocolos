@@ -43,7 +43,7 @@ Nos comandos (criar usuário, postar, comentar, curtir e seguir) achei os dois p
 
 Eu usaria REST em um app com poucas telas e dados simples, ou quando o cache for importante. Usaria GraphQL quando a tela juntar muitos dados relacionados, como o feed de uma rede social, ou quando telas diferentes precisarem de campos diferentes.
 
-- O REST faz melhor: operações simples, fáceis de testar e de cachear, com um status HTTP claro para cada resultado.
+- O REST faz melhor: operações simples, fáceis de testar e com um status HTTP claro para cada resultado.
 - O GraphQL faz melhor: buscar vários dados relacionados de uma vez, pedindo só o que a tela precisa.
 
 ## Limitações
