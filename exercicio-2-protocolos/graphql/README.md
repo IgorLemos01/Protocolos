@@ -1,55 +1,45 @@
-# GraphQL
+# API GraphQL
 
-API GraphQL da rede social, feita com **FastAPI + Strawberry**. Porta **8001**, com um único endpoint: `/graphql`.
+A rede social exposta como API GraphQL, feita em Python com FastAPI e Strawberry. Os dados ficam em um banco SQLite (um arquivo na própria pasta). O servidor roda na porta 8001 e tem um único endereço: `/graphql`.
 
-## Como executar (do zero)
+## Como rodar
 
-Requer Python 3.10 ou superior. Dentro da pasta `graphql/`:
+Precisa de Python 3.10 ou mais novo. Dentro da pasta `graphql/`:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # no Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
 ```
 
-O servidor sobe em http://127.0.0.1:8001/graphql. Abrindo essa URL no navegador aparece o **GraphiQL**, um editor onde você escreve a query à esquerda e vê a resposta à direita (botão ▶ para executar).
+Quando aparecer `Uvicorn running on http://127.0.0.1:8001`, o servidor está no ar.
 
-O banco é o arquivo `rede_social.db`, criado sozinho na pasta do projeto na primeira chamada. Os exemplos abaixo partem do banco **vazio**; para recomeçar, pare o servidor e apague o arquivo.
+## Como testar
 
-Para usar sem o GraphiQL, toda operação é um `POST /graphql` com o corpo `{"query": "..."}`:
+Abra http://127.0.0.1:8001/graphql no navegador. Essa página é o GraphiQL: escreva a query do lado esquerdo, clique no botão de play e a resposta aparece do lado direito.
+
+Sem o GraphiQL, toda operação é um `POST /graphql` com a query dentro de um JSON:
 
 ```bash
 curl -X POST http://127.0.0.1:8001/graphql -H "Content-Type: application/json" -d '{"query": "{ usuario(id: 1) { nome } }"}'
 ```
 
-> Esse `curl` funciona em Linux, Mac e Git Bash. No PowerShell do Windows, use o GraphiQL.
+(Esse `curl` funciona no Linux, no Mac e no Git Bash; no PowerShell do Windows use o GraphiQL.)
 
-## Operações
+O arquivo `rede_social.db` é criado sozinho na primeira requisição. Os exemplos começam com o banco vazio e devem ser rodados na ordem, porque os ids dependem disso. Para recomeçar, pare o servidor e apague o `rede_social.db`.
 
-| Operação | Tipo | Nome no schema |
-|---|---|---|
-| criar_usuario | Mutation | `criarUsuario(nome, email)` |
-| criar_post | Mutation | `criarPost(usuarioId, texto)` |
-| comentar | Mutation | `comentar(usuarioId, postId, texto)` |
-| curtir | Mutation | `curtir(usuarioId, postId)` |
-| seguir | Mutation | `seguir(usuarioId, alvoId)` |
-| buscar_usuario | Query | `usuario(id)` |
-| posts_do_usuario | Query | `postsDoUsuario(usuarioId)` |
-| buscar_post | Query | `post(id)` |
-| seguidores_de | Query | `seguidoresDe(id)` |
-| seguindo_de | Query | `seguindoDe(id)` |
-| feed_do_usuario | Query | `feedDoUsuario(usuarioId)` |
+## Como funciona
 
-Os tipos `Usuario` e `Post` são conectados: `Usuario` tem `posts`, `seguidores`, `seguindo` e `feed`; `Post` tem `autor`, `totalCurtidas` e `comentarios`. Por isso uma query pode navegar por tudo (veja o exemplo 14).
+Comandos (que alteram dados) são `mutation`. Consultas (que só leem) são `query`, e dá para escrever só `{ ... }`. Em ambos, eu escolho quais campos quero na resposta.
 
-Erros de negócio (usuário inexistente, curtida repetida etc.) voltam com HTTP 200 e uma lista `errors` na resposta, que é o comportamento padrão do GraphQL.
+Os tipos são ligados entre si: um `Usuario` tem `posts`, `seguidores`, `seguindo` e `feed`, e um `Post` tem `autor`, `totalCurtidas` e `comentarios`. Por isso uma query só pode andar por tudo isso.
 
-## Exemplos (copiáveis, executar na ordem)
+Erros de regra (usuário que não existe, curtir duas vezes) voltam com status HTTP 200 e uma lista `errors` dentro do JSON. É o comportamento normal do GraphQL.
 
-Os valores de `criadoEm` são só ilustrativos.
+## Comandos
 
-### 1. criar_usuario (Ana)
+### criar_usuario (mutation criarUsuario)
 
 ```graphql
 mutation {
@@ -57,11 +47,13 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"criarUsuario": {"id": 1, "nome": "Ana", "email": "ana@email.com"}}}
 ```
 
-### 2. criar_usuario (Bruno)
+Crie também o Bruno (vai ser o id 2):
 
 ```graphql
 mutation {
@@ -69,11 +61,9 @@ mutation {
 }
 ```
 
-```json
-{"data": {"criarUsuario": {"id": 2, "nome": "Bruno", "email": "bruno@email.com"}}}
-```
+### criar_post (mutation criarPost)
 
-### 3. criar_post
+O Bruno posta:
 
 ```graphql
 mutation {
@@ -81,11 +71,13 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"criarPost": {"id": 1, "autorId": 2, "texto": "Meu primeiro post", "criadoEm": "2026-10-18 14:40:05"}}}
 ```
 
-### 4. criar_post (segundo)
+Crie um segundo post, que vai ser usado nos exemplos de consulta:
 
 ```graphql
 mutation {
@@ -93,11 +85,9 @@ mutation {
 }
 ```
 
-```json
-{"data": {"criarPost": {"id": 2, "texto": "Segundo post do Bruno"}}}
-```
+### comentar (mutation comentar)
 
-### 5. comentar
+A Ana comenta o post 1:
 
 ```graphql
 mutation {
@@ -105,11 +95,15 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"comentar": {"id": 1, "usuarioId": 1, "postId": 1, "texto": "Bem-vindo!"}}}
 ```
 
-### 6. curtir
+### curtir (mutation curtir)
+
+A Ana curte o post 1:
 
 ```graphql
 mutation {
@@ -117,11 +111,21 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"curtir": {"id": 1, "totalCurtidas": 1}}}
 ```
 
-### 7. seguir
+Se rodar de novo, volta um erro dentro de `errors`:
+
+```json
+{"data": null, "errors": [{"message": "usuário já curtiu este post", "locations": [{"line": 2, "column": 3}], "path": ["curtir"]}]}
+```
+
+### seguir (mutation seguir)
+
+A Ana segue o Bruno (a resposta é o usuário que foi seguido):
 
 ```graphql
 mutation {
@@ -129,11 +133,15 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"seguir": {"id": 2, "nome": "Bruno", "totalSeguidores": 1}}}
 ```
 
-### 8. buscar_usuario
+## Consultas
+
+### buscar_usuario (usuario)
 
 ```graphql
 {
@@ -141,17 +149,21 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"usuario": {"id": 2, "nome": "Bruno", "email": "bruno@email.com", "bio": "", "totalSeguidores": 1, "totalSeguindo": 0}}}
 ```
 
-### 9. posts_do_usuario
+### posts_do_usuario (postsDoUsuario)
 
 ```graphql
 {
   postsDoUsuario(usuarioId: 2) { id texto criadoEm }
 }
 ```
+
+Resposta, do mais novo para o mais antigo:
 
 ```json
 {"data": {"postsDoUsuario": [
@@ -160,7 +172,7 @@ mutation {
 ]}}
 ```
 
-### 10. buscar_post
+### buscar_post (post)
 
 ```graphql
 {
@@ -168,11 +180,13 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"post": {"id": 1, "texto": "Meu primeiro post", "totalCurtidas": 1, "comentarios": [{"usuarioId": 1, "texto": "Bem-vindo!"}]}}}
 ```
 
-### 11. seguidores_de
+### seguidores_de (seguidoresDe)
 
 ```graphql
 {
@@ -180,11 +194,13 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"seguidoresDe": [{"id": 1, "nome": "Ana"}]}}
 ```
 
-### 12. seguindo_de
+### seguindo_de (seguindoDe)
 
 ```graphql
 {
@@ -192,17 +208,23 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"seguindoDe": [{"id": 2, "nome": "Bruno"}]}}
 ```
 
-### 13. feed_do_usuario
+### feed_do_usuario (feedDoUsuario)
+
+Os posts de quem o usuário segue, do mais novo para o mais antigo:
 
 ```graphql
 {
   feedDoUsuario(usuarioId: 1) { id texto autor { nome } }
 }
 ```
+
+Resposta:
 
 ```json
 {"data": {"feedDoUsuario": [
@@ -211,7 +233,9 @@ mutation {
 ]}}
 ```
 
-### 14. Bônus: tudo da Ana em UMA requisição
+## Extra: tudo numa requisição só
+
+Aqui aparece a principal diferença para o REST. Numa única query vêm quem a Ana segue e o feed dela, com o autor, as curtidas e os comentários de cada post:
 
 ```graphql
 {
@@ -228,6 +252,8 @@ mutation {
 }
 ```
 
+Resposta:
+
 ```json
 {"data": {"usuario": {
   "nome": "Ana",
@@ -239,18 +265,6 @@ mutation {
 }}}
 ```
 
-### 15. Erro: curtir duas vezes
+## O que o GraphQL faz melhor que o REST nesse domínio
 
-```graphql
-mutation {
-  curtir(usuarioId: 1, postId: 1) { id }
-}
-```
-
-```json
-{"data": null, "errors": [{"message": "usuário já curtiu este post", "locations": [{"line": 2, "column": 3}], "path": ["curtir"]}]}
-```
-
-## O que o GraphQL faz melhor que o REST, neste domínio
-
-O cliente escolhe os campos e navega pelas relações (usuário, feed, autor, curtidas e comentários) em uma única requisição, o que evita várias idas ao servidor para montar um feed.
+Ele monta o feed, com autor, curtidas e comentários de cada post, numa requisição só, trazendo apenas os campos que a tela precisa.
