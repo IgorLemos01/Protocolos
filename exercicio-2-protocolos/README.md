@@ -1,17 +1,15 @@
 # Atividade 02: APIs e protocolos
 
-Nesta atividade eu expus o mesmo domínio, uma rede social simplificada (usuários, perfis, posts, comentários, curtidas e seguidores), em dois protocolos diferentes: **REST** e **GraphQL**. Cada um é um projeto separado, feito em Python, com o seu próprio banco SQLite.
+Nesta atividade eu expus o mesmo domínio, uma rede social simplificada (usuários, perfis, posts, comentários, curtidas e seguidores), em dois protocolos: REST e GraphQL. Cada um é um projeto separado, feito em Python, com o seu próprio banco SQLite.
 
-| Pasta | Protocolo | Tecnologia | Porta |
-|---|---|---|---|
-| [`rest-json/`](rest-json/README.md) | REST (JSON) | FastAPI | 8000 |
-| [`graphql/`](graphql/README.md) | GraphQL | FastAPI e Strawberry | 8001 |
+- `rest-json/`: API REST em JSON, com FastAPI, na porta 8000.
+- `graphql/`: API GraphQL, com FastAPI e Strawberry, na porta 8001.
 
-Os dois têm os cinco comandos (`criar_usuario`, `criar_post`, `comentar`, `curtir` e `seguir`) e as consultas (`buscar_usuario`, `posts_do_usuario`, `buscar_post`, `seguidores_de` e `seguindo_de`, `feed_do_usuario`). O README de cada pasta traz um exemplo de requisição e de resposta para cada operação, pronto para copiar.
+Os dois têm os cinco comandos (`criar_usuario`, `criar_post`, `comentar`, `curtir` e `seguir`) e as consultas (`buscar_usuario`, `posts_do_usuario`, `buscar_post`, `seguidores_de` e `seguindo_de`, `feed_do_usuario`). O README de cada pasta tem um exemplo de requisição e de resposta, pronto para copiar, para cada operação.
 
 ## Como executar
 
-Cada projeto roda sozinho, a partir da própria pasta. O passo a passo completo está no README de cada um. Em resumo, precisa de Python 3.10 ou mais novo e, dentro da pasta `rest-json/` ou `graphql/`:
+Cada projeto roda sozinho, a partir da própria pasta. O passo a passo está no README de cada um (`rest-json/README.md` e `graphql/README.md`). Em resumo, precisa de Python 3.10 ou mais novo e, dentro da pasta do projeto:
 
 ```bash
 python -m venv .venv
@@ -22,102 +20,32 @@ python main.py
 
 Depois, o REST pode ser testado em http://127.0.0.1:8000/docs e o GraphQL em http://127.0.0.1:8001/graphql. Os dois podem rodar ao mesmo tempo, porque usam portas diferentes.
 
-## A diferença entre os dois, em uma frase
+## A diferença entre os dois
 
-- No **REST**, o servidor define o que cada endereço devolve. Para obter dados diferentes, o cliente acessa endereços diferentes.
-- No **GraphQL**, existe um único endereço e o cliente descreve exatamente os dados que quer. O servidor devolve só aquilo.
+No REST, o servidor define o que cada endereço devolve. Para obter dados diferentes, o cliente acessa endereços diferentes (`/usuarios/1`, `/posts/1`, `/usuarios/1/feed`).
 
-## A diferença na prática
+No GraphQL, existe um único endereço, `/graphql`, e o cliente descreve exatamente os dados que quer. O servidor devolve só aquilo.
 
-### 1. Mesma operação, criar um usuário
+Um exemplo com a mesma tela, o feed da Ana com o autor, as curtidas e os comentários de cada post:
 
-REST: o verbo e o endereço dizem o que fazer, e o corpo traz os dados.
+- No REST, precisei de uma requisição para o feed, uma para cada post (para ver curtidas e comentários) e uma para o autor. Com 1 post foram 3 requisições, e cada post a mais soma mais uma.
+- No GraphQL, foi uma query só, pedindo todos esses campos de uma vez (está no README do GraphQL).
 
-```bash
-curl -X POST http://127.0.0.1:8000/usuarios -H "Content-Type: application/json" -d '{"nome": "Ana", "email": "ana@email.com"}'
-```
+Outra diferença está nos erros. No REST, curtir duas vezes responde com status 409, e só de olhar o status já se sabe que deu errado. No GraphQL, a resposta vem com status 200 e o erro aparece numa lista `errors` dentro do JSON.
 
-```json
-{"id": 1, "nome": "Ana", "email": "ana@email.com"}
-```
-
-GraphQL: o endereço é sempre `/graphql`, e o que fazer vem escrito na própria query. Eu escolho quais campos voltam.
-
-```graphql
-mutation {
-  criarUsuario(nome: "Ana", email: "ana@email.com") { id nome }
-}
-```
-
-```json
-{"data": {"criarUsuario": {"id": 1, "nome": "Ana"}}}
-```
-
-No REST o `email` voltou porque o servidor decidiu assim. No GraphQL ele não voltou porque eu não pedi.
-
-### 2. Mesma tela, o feed da Ana
-
-Imagine uma tela que mostra o feed da Ana, com o nome do autor, as curtidas e os comentários de cada post.
-
-**No REST, precisei de 4 requisições** (no meu exemplo, o feed tinha 2 posts do mesmo autor):
-
-```
-GET /usuarios/1/feed        -> os posts (só id, autor_id, texto e data)
-GET /posts/1                -> curtidas e comentários do post 1
-GET /posts/2                -> curtidas e comentários do post 2
-GET /usuarios/2             -> o nome do autor
-```
-
-Com mais posts e mais autores, o número de requisições cresce.
-
-**No GraphQL, foi 1 requisição:**
-
-```graphql
-{
-  usuario(id: 1) {
-    nome
-    feed {
-      texto
-      autor { nome }
-      totalCurtidas
-      comentarios { texto }
-    }
-  }
-}
-```
-
-### 3. Mesmo erro, curtir duas vezes
-
-- **REST:** a resposta vem com status **409** e o corpo `{"erro": "usuário já curtiu este post"}`. Basta olhar o status para saber que deu errado.
-- **GraphQL:** a resposta vem com status **200** e uma lista `errors` dentro do JSON. É preciso ler o conteúdo para saber que deu errado.
+Também há diferença no cache: no REST, cada `GET` tem a sua URL e é fácil de cachear. No GraphQL, tudo é `POST` no mesmo endereço, então é mais difícil.
 
 ## Comparação final
 
-| | REST | GraphQL |
-|---|---|---|
-| Endereços | Uma URL para cada recurso e operação | Um só, `/graphql` |
-| Quem decide o que vem na resposta | O servidor | O cliente |
-| Montar o feed completo | 4 requisições no meu exemplo | 1 requisição |
-| Campos que sobram ou faltam | Pode acontecer (traz demais ou de menos) | Vem só o que foi pedido |
-| Erros | Status HTTP (404, 400, 409) | Status 200, com o erro numa lista `errors` |
-| Cache | Fácil, cada `GET` tem a sua URL | Mais difícil, tudo é `POST` no mesmo endereço |
-| Testar à mão | `curl` ou Swagger (`/docs`) | GraphiQL (`/graphql`) |
-| Esforço para implementar | Uma função por rota | Definir os tipos e um resolver por campo |
-| Documentação | Gerada pelo FastAPI (Swagger) | O próprio schema serve de documentação |
+O REST foi mais simples de fazer: uma função por rota, e dá para testar com `curl` ou com o Swagger. O GraphQL deu mais trabalho, porque foi preciso definir os tipos e um resolver para cada campo.
 
-## Quando eu usaria cada um
+Nos comandos (criar usuário, postar, comentar, curtir e seguir) achei os dois parecidos, e o REST ficou até mais claro por causa dos status HTTP. Nas consultas, principalmente no feed, o GraphQL se saiu melhor, porque esse domínio tem muitas relações ligadas entre si e ele busca tudo de uma vez.
 
-**REST**, quando o app tem poucas telas e dados simples, ou quando o cache importa. Cada operação é um endereço com um status claro, é fácil de testar com `curl` e de entender.
+Eu usaria REST em um app com poucas telas e dados simples, ou quando o cache for importante. Usaria GraphQL quando a tela juntar muitos dados relacionados, como o feed de uma rede social, ou quando telas diferentes precisarem de campos diferentes.
 
-**GraphQL**, quando a tela junta muitos dados relacionados, como o feed de uma rede social, ou quando telas diferentes precisam de campos diferentes. O cliente pede só o que precisa, em uma requisição.
+- O REST faz melhor: operações simples, fáceis de testar e de cachear, com um status HTTP claro para cada resultado.
+- O GraphQL faz melhor: buscar vários dados relacionados de uma vez, pedindo só o que a tela precisa.
 
-## O que cada um faz melhor nesse domínio
+## Limitações
 
-- **REST:** operações simples, fáceis de testar e de cachear, com um status HTTP claro para cada resultado.
-- **GraphQL:** buscar vários dados relacionados de uma vez (como o feed), pedindo só o que a tela precisa.
-
-## Observações
-
-- Nos comandos (criar usuário, postar, comentar, curtir e seguir) eu achei os dois parecidos. O REST ficou até mais claro por causa dos status HTTP.
-- No GraphQL, cada campo aninhado faz as suas próprias consultas ao banco, então um feed grande faria muitas consultas por trás (o conhecido problema N+1). Eu não resolvi isso porque o foco era comparar os protocolos.
-- Não coloquei login nem autenticação em nenhum dos dois.
+No GraphQL, cada campo aninhado faz as suas próprias consultas ao banco, então um feed grande faria muitas consultas por trás (o problema N+1). Eu não resolvi isso porque o foco era comparar os protocolos. Também não coloquei login nem autenticação em nenhum dos dois.
